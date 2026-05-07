@@ -4,7 +4,6 @@ export class SyncAssets1778112303223 implements MigrationInterface {
     name = 'SyncAssets1778112303223'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
-        // Створюємо нові таблиці
         await queryRunner.query(`
             CREATE TABLE "company" (
                 "company_id" SERIAL NOT NULL,
@@ -35,7 +34,6 @@ export class SyncAssets1778112303223 implements MigrationInterface {
             )
         `);
 
-        // Додаємо зв'язки (Foreign Keys)
         await queryRunner.query(`
             ALTER TABLE "bond"
             ADD CONSTRAINT "FK_678d6e3aa5c5de4ddc4852e496f" FOREIGN KEY ("company_id") REFERENCES "company"("company_id") ON DELETE NO ACTION ON UPDATE NO ACTION
