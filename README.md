@@ -281,10 +281,12 @@ export class BondResponseDTO {
   }
 ```
 
+![Скрін14](screenshots/GetBondsSorted.png)
+
 ## 4. Додайте скріншоти з Postman:
 
 ### 1. Запит з некоректними даними, який повертає помилку 400 Bad Request від вашого middleware.
-![Скрін14](screenshots/IncorrectDataExample.png)
+![Скрін15](screenshots/IncorrectDataExample.png)
 
 ### 2. Успішний запит, відповідь на який має структуру вашого нового ResponseDTO.
-![Скрін15](screenshots/ResponseExample.png)
+![Скрін16](screenshots/ResponseExample.png)
