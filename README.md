@@ -85,3 +85,206 @@ DELETE /actions/:id - Видалення акції з бази.
 
 Видалити акцію за id
 ![Скрін13](screenshots/DeleteActions.png)
+
+# Лабораторно-практична робота №6
+
+## Впровадження сервісного шару, валідації та DTO
+### Мета
+Навчитись проектувати та реалізовувати правильну архітектуру бекенд-додатку за принципом розділення відповідальності (Separation of Concerns). Практично реалізувати сервісний шар, впровадити механізм валідації через middleware та навчитись формувати контрольовані відповіді API за допомогою DTO.
+
+## 1. Пояснити роль кожного шару: Middleware (валідація), Controller (оркестрація), Service (бізнес-логіка), Repository (доступ до даних).
+
+Middleware (Валідація): Перевіряє вхідні дані до того, як вони потраплять у контролер. Якщо дані не валідні, то middleware зупиняє запит і повертає 400 Bad Request.
+
+Controller (Оркестрація): Приймає HTTP-запит, викликає потрібний метод у Service і повертає результат клієнту через DTO.
+
+Service (Бізнес-логіка): Виконує розрахунки, наприклад, якщо ми купуємо акції, сервіс ділить внесені гроші на ціну одного пакету акцій і розраховує яку кількість акцій отримає інвестор за ті гроші, що він вніс.
+
+Repository (Доступ до даних): Шар, який безпосередньо спілкується з базою даних через TypeORM.
+
+## 2. Наведіть приклад коду вашої middleware-функції.
+
+### Код файлу assetValidarot.ts
+
+```assetValidarot.ts
+import { Request, Response, NextFunction } from 'express';
+import { plainToInstance } from 'class-transformer';
+import { validate, ValidationError } from 'class-validator';
+
+import { CustomError } from 'utils/response/custom-error/CustomError';
+import { ErrorValidation } from 'utils/response/custom-error/types';
+
+export const assetValidator = (dtoClass: any) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const output = plainToInstance(dtoClass, req.body);
+    
+    validate(output).then((errors: ValidationError[]) => {
+      if (errors.length > 0) {
+        const errorsValidation: ErrorValidation[] = errors.map((error) => ({
+          [error.property]: Object.values(error.constraints || {}).join(', '),
+        }));
+
+        const customError = new CustomError(
+          400, 
+          'Validation', 
+          'Asset validation error', 
+          null, 
+          null, 
+          errorsValidation
+        );
+        return next(customError);
+      }
+      
+      req.body = output;
+      return next();
+    });
+  };
+};
+```
+### Перевірка усіх декораторів, що прописані в файлі Asset.dto.ts
+
+```assetValidarot.ts
+    validate(output).then((errors: ValidationError[]) => {
+      if (errors.length > 0) {
+        const errorsValidation: ErrorValidation[] = errors.map((error) => ({
+          [error.property]: Object.values(error.constraints || {}).join(', '),
+        }));
+
+        const customError = new CustomError(
+          400, 
+          'Validation', 
+          'Asset validation error', 
+          null, 
+          null, 
+          errorsValidation
+        );
+        return next(customError);
+      }
+      
+      req.body = output;
+      return next();
+    });
+```
+### Формування зрозумілої помилки
+
+```assetValidarot.ts
+const errorsValidation: ErrorValidation[] = errors.map((error) => ({
+  [error.property]: Object.values(error.constraints || {}).join(', '),
+}));
+```
+### Виклик помилки
+
+```assetValidarot.ts
+        const customError = new CustomError(
+          400, 
+          'Validation', 
+          'Asset validation error', 
+          null, 
+          null, 
+          errorsValidation
+        );
+        return next(customError);
+```
+
+
+### Код файлу Asset.dto.ts
+
+```Asset.dto.ts
+import { IsString, IsNumber, IsNotEmpty, Min, IsOptional } from 'class-validator';
+
+export class CreateCompanyDto {
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsString()
+  @IsNotEmpty()
+  industry: string;
+
+  @IsString()
+  @IsOptional()
+  website: string;
+}
+
+export class CreateActionDto {
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsString()
+  @IsNotEmpty()
+  industry: string;
+
+  @IsNumber()
+  @Min(0.01)
+  price: number;
+
+  @IsNumber()
+  @IsNotEmpty()
+  companyId: number;
+}
+
+export class CreateBondDto {
+  @IsString()
+  @IsNotEmpty()
+  industry: string;
+
+  @IsNumber()
+  @Min(1)
+  investmentTerm: number;
+
+  @IsNumber()
+  @Min(0)
+  annualProfitPercent: number;
+
+  @IsNumber()
+  @IsNotEmpty()
+  companyId: number;
+}
+```
+
+## 3. Наведіть приклад коду вашого ResponseDTO та сервіс-класу.
+
+### Приклад коду ResponseDTO (BondResponse.dto.ts)
+
+```BondResponse.dto.ts
+import { Bond } from '../orm/entities/Bond.entity';
+
+export class BondResponseDTO {
+  id: number;
+  industry: string;
+  investmentTerm: number;
+  annualProfitPercent: number;
+  companyId: number;
+
+  constructor(bond: Bond) {
+    this.id = bond.bond_id;
+    this.industry = bond.industry;
+    this.investmentTerm = bond.investmentTerm;
+    this.annualProfitPercent = Number(bond.annualProfitPercent); 
+    this.companyId = bond.companyId;
+  }
+}
+```
+
+### Приклад коду сервіс-класу (BondService.ts)
+#### Повертає відсортовані облігації за відсотком річного прибутку
+
+```BondService.ts
+  async findAllSorted(): Promise<Bond[]> {
+    return await this.bondRepository.find({
+      order: {
+        annualProfitPercent: 'DESC'
+      },
+      relations: ['company']
+    });
+  }
+```
+
+## 4. Додайте скріншоти з Postman:
+
+### 1. Запит з некоректними даними, який повертає помилку 400 Bad Request від вашого middleware.
+![Скрін14](screenshots/IncorrectDataExample.png)
+
+### 2. Успішний запит, відповідь на який має структуру вашого нового ResponseDTO.
+![Скрін15](screenshots/ResponseExample.png)
