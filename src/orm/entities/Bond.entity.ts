@@ -9,8 +9,8 @@ export class Bond {
     @Column()
     industry: string;
 
-    @Column({ name: 'investment_term' })
-    investmentTerm: string;
+    @Column({ type: 'integer', name: 'investment_term' })
+    investmentTerm: number;
 
     @Column({ name: 'annual_profit_percent', type: 'numeric' })
     annualProfitPercent: number;

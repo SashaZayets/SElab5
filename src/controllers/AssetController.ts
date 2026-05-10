@@ -1,67 +1,64 @@
 import { Request, Response } from 'express';
-import { getRepository } from 'typeorm';
-import { Company } from '../orm/entities/Company.entity';
-import { Bond } from '../orm/entities/Bond.entity';
-import { Action } from '../orm/entities/Action.entity';
+import { CompanyService } from '../services/CompanyService';
+import { BondService } from '../services/BondService';
+import { ActionService } from '../services/ActionService';
 
+import { CompanyResponseDTO } from '../dto/CompanyResponse.dto';
+import { BondResponseDTO } from '../dto/BondResponse.dto';
+import { ActionResponseDTO } from '../dto/ActionResponse.dto';
 
-//Компанії
+//Комппанії
 export const createCompany = async (req: Request, res: Response) => {
   try {
-    const companyRepository = getRepository(Company);
-    const company = companyRepository.create(req.body);
-    const result = await companyRepository.save(company);
-    return res.status(201).json(result);
-  } catch (err) {
+    const companyService = new CompanyService();
+    const result = await companyService.create(req.body);
+    return res.status(201).json(new CompanyResponseDTO(result));
+  } catch (err: any) {
     return res.status(400).json({ message: err.message });
   }
 };
 
 export const getCompanyDetails = async (req: Request, res: Response) => {
   try {
-    const companyRepository = getRepository(Company);
-    const company = await companyRepository.findOne(req.params.id, {
-      relations: ['bonds', 'actions']
-    });
-    
+    const companyService = new CompanyService();
+    const company = await companyService.findOne(req.params.id);
     if (!company) return res.status(404).json({ message: 'Company not found' });
-    return res.json(company);
-  } catch (err) {
+    return res.json(new CompanyResponseDTO(company));
+  } catch (err: any) {
     return res.status(500).json({ message: err.message });
   }
 };
 
 export const getAllCompanies = async (req: Request, res: Response) => {
-  const companies = await getRepository(Company).find({ relations: ['bonds', 'actions'] });
-  return res.json(companies);
+  try {
+    const companyService = new CompanyService();
+    const companies = await companyService.findAll();
+    return res.json(companies.map(c => new CompanyResponseDTO(c)));
+  } catch (err: any) {
+    return res.status(500).json({ message: err.message });
+  }
 };
 
 export const updateCompany = async (req: Request, res: Response) => {
-  const repo = getRepository(Company);
-  await repo.update(req.params.id, req.body);
-  const updated = await repo.findOne(req.params.id);
-  return res.json(updated);
+  try {
+    const companyService = new CompanyService();
+    const updated = await companyService.update(req.params.id, req.body);
+    return res.json(new CompanyResponseDTO(updated));
+  } catch (err: any) {
+    return res.status(400).json({ message: err.message });
+  }
 };
 
 export const deleteCompany = async (req: Request, res: Response) => {
   try {
-    const repo = getRepository(Company);
-    const id = req.params.id;
-
-    const company = await repo.findOne(id);
-    if (!company) {
-      return res.status(404).json({ message: "Компанію не знайдено" });
-    }
-
-    await repo.delete(id);
-
+    const companyService = new CompanyService();
+    const success = await companyService.delete(req.params.id);
+    if (!success) return res.status(404).json({ message: "Компанію не знайдено" });
     return res.status(204).send();
-
-  } catch (err) {
+  } catch (err: any) {
     return res.status(400).json({ 
-      status: "error",
-      message: "Неможливо видалити компанію: у неї є активні облігації або акції. Спершу видаліть активи.",
-      details: err.detail
+      message: "Неможливо видалити компанію: у неї є активні активи.",
+      details: err.detail 
     });
   }
 };
@@ -69,62 +66,89 @@ export const deleteCompany = async (req: Request, res: Response) => {
 //Облігації
 export const createBond = async (req: Request, res: Response) => {
   try {
-    const bondRepository = getRepository(Bond);
-    
-    const bond = bondRepository.create(req.body as Bond); 
-
-    const result = await bondRepository.save(bond);
-    
-    return res.status(201).json(result);
-  } catch (err) {
+    const bondService = new BondService();
+    const result = await bondService.create(req.body);
+    return res.status(201).json(new BondResponseDTO(result));
+  } catch (err: any) {
     return res.status(400).json({ message: err.message });
   }
 };
 
 export const getAllBonds = async (req: Request, res: Response) => {
-  const bonds = await getRepository(Bond).find();
-  return res.json(bonds);
+  try {
+    const bondService = new BondService();
+    const bonds = await bondService.findAll();
+    return res.json(bonds.map(b => new BondResponseDTO(b)));
+  } catch (err: any) {
+    return res.status(500).json({ message: err.message });
+  }
 };
 
 export const updateBond = async (req: Request, res: Response) => {
-  const repo = getRepository(Bond);
-  await repo.update(req.params.id, req.body);
-  const updated = await repo.findOne(req.params.id);
-  return res.json(updated);
+  try {
+    const bondService = new BondService();
+    const updated = await bondService.update(req.params.id, req.body);
+    return res.json(new BondResponseDTO(updated));
+  } catch (err: any) {
+    return res.status(400).json({ message: err.message });
+  }
 };
 
 export const deleteBond = async (req: Request, res: Response) => {
-  await getRepository(Bond).delete(req.params.id);
-  return res.status(204).send();
+  try {
+    const bondService = new BondService();
+    const success = await bondService.delete(req.params.id);
+    if (!success) return res.status(404).json({ message: "Облігацію не знайдено" });
+    return res.status(204).send();
+  } catch (err: any) {
+    return res.status(400).json({ message: err.message });
+  }
+};
+
+export const getSortedBonds = async (req: Request, res: Response) => {
+    const service = new BondService();
+    const bonds = await service.findAllSorted();
+    res.json(bonds);
 };
 
 //Акції
 export const createAction = async (req: Request, res: Response) => {
   try {
-    const actionRepository = getRepository(Action);
-
-    const action = actionRepository.create(req.body as Action); 
-
-    const result = await actionRepository.save(action);
-    return res.status(201).json(result);
-  } catch (err) {
+    const actionService = new ActionService();
+    const result = await actionService.create(req.body);
+    return res.status(201).json(new ActionResponseDTO(result));
+  } catch (err: any) {
     return res.status(400).json({ message: err.message });
   }
 };
 
 export const getAllActions = async (req: Request, res: Response) => {
-  const actions = await getRepository(Action).find();
-  return res.json(actions);
+  try {
+    const actionService = new ActionService();
+    const actions = await actionService.findAll();
+    return res.json(actions.map(a => new ActionResponseDTO(a)));
+  } catch (err: any) {
+    return res.status(500).json({ message: err.message });
+  }
 };
 
 export const updateAction = async (req: Request, res: Response) => {
-  const repo = getRepository(Action);
-  await repo.update(req.params.id, req.body);
-  const updated = await repo.findOne(req.params.id);
-  return res.json(updated);
+  try {
+    const actionService = new ActionService();
+    const updated = await actionService.update(req.params.id, req.body);
+    return res.json(new ActionResponseDTO(updated));
+  } catch (err: any) {
+    return res.status(400).json({ message: err.message });
+  }
 };
 
 export const deleteAction = async (req: Request, res: Response) => {
-  await getRepository(Action).delete(req.params.id);
-  return res.status(204).send();
+  try {
+    const actionService = new ActionService();
+    const success = await actionService.delete(req.params.id);
+    if (!success) return res.status(404).json({ message: "Акцію не знайдено" });
+    return res.status(204).send();
+  } catch (err: any) {
+    return res.status(400).json({ message: err.message });
+  }
 };
